@@ -155,17 +155,96 @@ void loop()
   // Format the time 
   char formattedTime[32];
   strftime(formattedTime, sizeof(formattedTime), "%Y-%m-%d %H:%M:%S", &timeinfo);
+  int temperature_condition;
+  int humidity_condition;
+  int lpg_ppm_condition;
+  int co_ppm_condition;
+  int smoke_ppm_condition;
 
+if(2 < temperature && temperature < 4){
+    temperature_condition = 1; // 1 represents the best temperature condition
+} else if(4 < temperature && temperature < 6){
+    temperature_condition = 3;
+} else if(6 < temperature && temperature < 8){
+    temperature_condition = 5;
+} else if(8 < temperature && temperature < 10){
+    temperature_condition = 7;
+} else if(10 < temperature && temperature < 12){
+    temperature_condition = 9;
+} else if(12 < temperature && temperature < 14){
+    temperature_condition = 10;
+}
+
+if (40 < humidity && humidity < 50) {
+    humidity_condition = 1; // 1 represents the best humidity condition
+} else if (50 < humidity && humidity < 60) {
+    humidity_condition = 3;
+} else if (60 < humidity && humidity < 70) {
+    humidity_condition = 5;
+} else if (70 < humidity && humidity < 80) {
+    humidity_condition = 7;
+} else if (80 < humidity && humidity < 90) {
+    humidity_condition = 9;
+} else if (90 < humidity && humidity < 100) {
+    humidity_condition = 10;
+}
+
+if (0 < lpg_ppm && lpg_ppm < 100) {
+    lpg_ppm_condition = 1; // 1 represents the best LPG ppm condition
+} else if (100 < lpg_ppm && lpg_ppm < 200) {
+    lpg_ppm_condition = 3;
+} else if (200 < lpg_ppm && lpg_ppm < 300) {
+    lpg_ppm_condition = 5;
+} else if (300 < lpg_ppm && lpg_ppm < 400) {
+    lpg_ppm_condition = 7;
+} else if (400 < lpg_ppm && lpg_ppm < 500) {
+    lpg_ppm_condition = 9;
+} else if (500 < lpg_ppm) {
+    lpg_ppm_condition = 10;
+}
+
+if (0 < co_ppm && co_ppm < 100) {
+    co_ppm_condition = 1; // 1 represents the best CO ppm condition
+} else if (100 < co_ppm && co_ppm < 200) {
+    co_ppm_condition = 3;
+} else if (200 < co_ppm && co_ppm < 300) {
+    co_ppm_condition = 5;
+} else if (300 < co_ppm && co_ppm < 400) {
+    co_ppm_condition = 7;
+} else if (400 < co_ppm && co_ppm < 500) {
+    co_ppm_condition = 9;
+} else if (500 < co_ppm) {
+    co_ppm_condition = 10;
+}
+
+if (0 < smoke_ppm && smoke_ppm < 100) {
+    smoke_ppm_condition = 1; // 1 represents the best smoke ppm condition
+} else if (100 < smoke_ppm && smoke_ppm < 200) {
+    smoke_ppm_condition = 3;
+} else if (200 < smoke_ppm && smoke_ppm < 300) {
+    smoke_ppm_condition = 5;
+} else if (300 < smoke_ppm && smoke_ppm < 400) {
+    smoke_ppm_condition = 7;
+} else if (400 < smoke_ppm && smoke_ppm < 500) {
+    smoke_ppm_condition = 9;
+} else if (500 < smoke_ppm) {
+    smoke_ppm_condition = 10;
+}
   
   // 4) Build JSON for Firebase
   // -----------------------
   FirebaseJson json;
   json.set("temperature", temperature);
-  json.set("humidity",    humidity);
-  json.set("lpg",         lpg_ppm);
-  json.set("co",          co_ppm);
-  json.set("smoke",       smoke_ppm);
-  json.set("time",        formattedTime);
+  json.set("temperature condition", temperature_condition);
+  json.set("humidity", humidity);
+   json.set("humidity condition", humidity_condition);
+  json.set("lpg", lpg_ppm);
+  json.set("lpg condition", lpg_ppm_condition);
+  json.set("co", co_ppm);
+  json.set("co condition", co_ppm_condition);
+  json.set("smoke", smoke_ppm);
+  json.set("smoke condition", smoke_ppm_condition);
+  json.set("time", formattedTime);
 
   // pushJSON => each reading gets a unique key
   String path = "inventory"; 
