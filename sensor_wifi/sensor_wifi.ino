@@ -160,6 +160,7 @@ void loop()
   int lpg_ppm_condition;
   int co_ppm_condition;
   int smoke_ppm_condition;
+  
 
 if(2 < temperature && temperature < 4){
     temperature_condition = 1; // 1 represents the best temperature condition
@@ -230,14 +231,35 @@ if (0 < smoke_ppm && smoke_ppm < 100) {
 } else if (500 < smoke_ppm) {
     smoke_ppm_condition = 10;
 }
-  
+  float overall_value=(temperature_condition + humidity_condition + lpg_ppm_condition + co_ppm_condition + smoke_ppm_condition) / 5.0;
+  if (overall_value >= 1 && overall_value < 2) {
+    overall_condition = 1;
+} else if (overall_value >= 2 && overall_value < 3) {
+    overall_condition = 2;
+} else if (overall_value >= 3 && overall_value < 4) {
+    overall_condition = 3;
+} else if (overall_value >= 4 && overall_value < 5) {
+    overall_condition = 4;
+} else if (overall_value >= 5 && overall_value < 6) {
+    overall_condition = 5;
+} else if (overall_value >= 6 && overall_value < 7) {
+    overall_condition = 6;
+} else if (overall_value >= 7 && overall_value < 8) {
+    overall_condition = 7;
+} else if (overall_value >= 8 && overall_value < 9) {
+    overall_condition = 8;
+} else if (overall_value >= 9 && overall_value < 10) {
+    overall_condition = 9;
+} else {
+    overall_condition = 10;
+}
   // 4) Build JSON for Firebase
   // -----------------------
   FirebaseJson json;
   json.set("temperature", temperature);
   json.set("temperature condition", temperature_condition);
   json.set("humidity", humidity);
-   json.set("humidity condition", humidity_condition);
+  json.set("humidity condition", humidity_condition);
   json.set("lpg", lpg_ppm);
   json.set("lpg condition", lpg_ppm_condition);
   json.set("co", co_ppm);
@@ -245,6 +267,7 @@ if (0 < smoke_ppm && smoke_ppm < 100) {
   json.set("smoke", smoke_ppm);
   json.set("smoke condition", smoke_ppm_condition);
   json.set("time", formattedTime);
+  json.set("overall condition", overall_condition);
 
   // pushJSON => each reading gets a unique key
   String path = "inventory"; 
