@@ -232,6 +232,7 @@ if (0 < smoke_ppm && smoke_ppm < 100) {
     smoke_ppm_condition = 10;
 }
   float overall_value=(temperature_condition + humidity_condition + lpg_ppm_condition + co_ppm_condition + smoke_ppm_condition) / 5.0;
+  int overall_condition;
   if (overall_value >= 1 && overall_value < 2) {
     overall_condition = 1;
 } else if (overall_value >= 2 && overall_value < 3) {
