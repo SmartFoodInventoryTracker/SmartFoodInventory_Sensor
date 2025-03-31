@@ -1,3 +1,7 @@
+//gg
+
+
+
 #include <WiFi.h>
 #include <Firebase_ESP_Client.h>  
 #include <addons/TokenHelper.h>   
@@ -24,11 +28,11 @@ static const int   daylightOffset_s = 3600;     // Change as needed
 #define DHT11_PIN 4
 //mq135 sensor
 #define MQ_PIN                 34    // ADC input pin on ESP32
-#define RL_VALUE               1     // Load resistor in kilo-ohms
+#define RL_VALUE               20     // Load resistor in kilo-ohms
 #define RO_CLEAN_AIR_FACTOR    3.6   // Sensor resistance in clean air factor
 
 // Calibration/reading settings
-#define CALIBARAION_SAMPLE_TIMES    50
+#define CALIBARAION_SAMPLE_TIMES    10
 #define CALIBRATION_SAMPLE_INTERVAL 500
 #define READ_SAMPLE_INTERVAL        50
 #define READ_SAMPLE_TIMES           5
@@ -37,11 +41,19 @@ static const int   daylightOffset_s = 3600;     // Change as needed
 #define GAS_LPG    0
 #define GAS_CO     1
 #define GAS_SMOKE  2
-
+float           LPGCurve[3]  =  {2.3,0.21,-0.47};   //two points are taken from the curve. 
+                                                    //with these two points, a line is formed which is "approximately equivalent"
+                                                    //to the original curve. 
+                                                    //data format:{ x, y, slope}; point1: (lg200, 0.21), point2: (lg10000, -0.59) 
+float           COCurve[3]  =  {2.3,0.72,-0.34};    //two points are taken from the curve. 
+                                                    //with these two points, a line is formed which is "approximately equivalent" 
+                                                    //to the original curve.
+                                                    //data format:{ x, y, slope}; point1: (lg200, 0.72), point2: (lg10000,  0.15) 
+float           SmokeCurve[3] ={2.3,0.53,-0.44};  
 // Gas curves
-float LPGCurve[3]   = {2.3,  0.21, -0.47};
-float COCurve[3]    = {2.3,  0.72, -0.34};
-float SmokeCurve[3] = {2.3,  0.53, -0.44};
+//float LPGCurve[3]   = {2.3,  0.21, -0.47};
+//float COCurve[3]    = {1,0.36,-0.35};
+//float SmokeCurve[3] = {1,  0.41, -0.40};            // NH3
 
 // Global baseline resistance
 float Ro = 10.0;
@@ -71,7 +83,7 @@ void setup()
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+   Serial.print(".");
   }
   Serial.println("\nWiFi connected!");
 
@@ -108,19 +120,19 @@ void loop()
   // -----------------------
   float mqResistance = MQRead(MQ_PIN); 
   float ratio        = mqResistance / Ro;
-  int lpg_ppm        = MQGetGasPercentage(ratio, GAS_LPG);
-  int co_ppm         = MQGetGasPercentage(ratio, GAS_CO);
-  int smoke_ppm      = MQGetGasPercentage(ratio, GAS_SMOKE);
+  int lpg_ppm        = (8.99*MQGetGasPercentage(ratio, GAS_LPG));
+  int co_ppm         =(9.99*MQGetGasPercentage(ratio, GAS_CO));
+  int smoke_ppm      = (7.99*MQGetGasPercentage(ratio, GAS_SMOKE));
 
-  if(lpg_ppm>1000){
-    lpg_ppm=1000;
-  }
-  if(co_ppm>1000){
-    co_ppm=1000;
-  }
-  if(smoke_ppm>1000){
-    smoke_ppm=1000;
-  }
+  //if(lpg_ppm>1000){
+  //  lpg_ppm=1000;
+ // }
+ // if(co_ppm>1000)
+   // co_ppm=1000;
+  //}
+  //if(smoke_ppm>1000){
+  //  smoke_ppm=1000;
+ // }
 
   Serial.print("LPG: ");
   Serial.print(lpg_ppm);
@@ -162,76 +174,76 @@ void loop()
   int smoke_ppm_condition;
   
 
-if(2 < temperature && temperature < 4){
+if(2 <= temperature && temperature < 4){
     temperature_condition = 1; // 1 represents the best temperature condition
-} else if(4 < temperature && temperature < 6){
+} else if(4 <= temperature && temperature < 6){
     temperature_condition = 3;
-} else if(6 < temperature && temperature < 8){
+} else if(6 <= temperature && temperature < 8){
     temperature_condition = 5;
-} else if(8 < temperature && temperature < 10){
+} else if(8 <= temperature && temperature < 10){
     temperature_condition = 7;
-} else if(10 < temperature && temperature < 12){
+} else if(10 <= temperature && temperature < 12){
     temperature_condition = 9;
-} else if(12 < temperature && temperature < 14){
+} else if(12 <= temperature && temperature < 14){
     temperature_condition = 10;
 }
 
-if (40 < humidity && humidity < 50) {
+if (40 <= humidity && humidity < 50) {
     humidity_condition = 1; // 1 represents the best humidity condition
-} else if (50 < humidity && humidity < 60) {
+} else if (50 <= humidity && humidity < 60) {
     humidity_condition = 3;
-} else if (60 < humidity && humidity < 70) {
+} else if (60 <= humidity && humidity < 70) {
     humidity_condition = 5;
-} else if (70 < humidity && humidity < 80) {
+} else if (70 <= humidity && humidity < 80) {
     humidity_condition = 7;
-} else if (80 < humidity && humidity < 90) {
+} else if (80 <= humidity && humidity < 90) {
     humidity_condition = 9;
-} else if (90 < humidity && humidity < 100) {
+} else if (90 <= humidity && humidity < 100) {
     humidity_condition = 10;
 }
 
-if (0 < lpg_ppm && lpg_ppm < 100) {
+if (0 <= lpg_ppm && lpg_ppm < 100) {
     lpg_ppm_condition = 1; // 1 represents the best LPG ppm condition
-} else if (100 < lpg_ppm && lpg_ppm < 200) {
+} else if (100 <= lpg_ppm && lpg_ppm < 200) {
     lpg_ppm_condition = 3;
-} else if (200 < lpg_ppm && lpg_ppm < 300) {
+} else if (200 <= lpg_ppm && lpg_ppm < 300) {
     lpg_ppm_condition = 5;
-} else if (300 < lpg_ppm && lpg_ppm < 400) {
+} else if (300 <= lpg_ppm && lpg_ppm < 400) {
     lpg_ppm_condition = 7;
-} else if (400 < lpg_ppm && lpg_ppm < 500) {
+} else if (400 <= lpg_ppm && lpg_ppm < 500) {
     lpg_ppm_condition = 9;
-} else if (500 < lpg_ppm) {
+} else if (500 <= lpg_ppm) {
     lpg_ppm_condition = 10;
 }
 
-if (0 < co_ppm && co_ppm < 100) {
+if (0 <= co_ppm && co_ppm < 100) {
     co_ppm_condition = 1; // 1 represents the best CO ppm condition
-} else if (100 < co_ppm && co_ppm < 200) {
+} else if (100 <= co_ppm && co_ppm < 200) {
     co_ppm_condition = 3;
-} else if (200 < co_ppm && co_ppm < 300) {
+} else if (200 <= co_ppm && co_ppm < 300) {
     co_ppm_condition = 5;
-} else if (300 < co_ppm && co_ppm < 400) {
+} else if (300 <= co_ppm && co_ppm < 400) {
     co_ppm_condition = 7;
-} else if (400 < co_ppm && co_ppm < 500) {
+} else if (400 <= co_ppm && co_ppm < 500) {
     co_ppm_condition = 9;
-} else if (500 < co_ppm) {
+} else if (500 <= co_ppm) {
     co_ppm_condition = 10;
 }
 
-if (0 < smoke_ppm && smoke_ppm < 100) {
+if (0 <= smoke_ppm && smoke_ppm < 100) {
     smoke_ppm_condition = 1; // 1 represents the best smoke ppm condition
-} else if (100 < smoke_ppm && smoke_ppm < 200) {
+} else if (100 <= smoke_ppm && smoke_ppm < 200) {
     smoke_ppm_condition = 3;
-} else if (200 < smoke_ppm && smoke_ppm < 300) {
+} else if (200 <= smoke_ppm && smoke_ppm < 300) {
     smoke_ppm_condition = 5;
-} else if (300 < smoke_ppm && smoke_ppm < 400) {
+} else if (300 <= smoke_ppm && smoke_ppm < 400) {
     smoke_ppm_condition = 7;
-} else if (400 < smoke_ppm && smoke_ppm < 500) {
+} else if (400 <= smoke_ppm && smoke_ppm < 500) {
     smoke_ppm_condition = 9;
-} else if (500 < smoke_ppm) {
+} else if (500 <= smoke_ppm) {
     smoke_ppm_condition = 10;
 }
-  float overall_value=(temperature_condition + humidity_condition + lpg_ppm_condition + co_ppm_condition + smoke_ppm_condition) / 5.0;
+  float overall_value=(temperature_condition + humidity_condition + co_ppm_condition + smoke_ppm_condition) / 4.0;
   int overall_condition;
   if (overall_value >= 1 && overall_value < 2) {
     overall_condition = 1;
@@ -279,7 +291,7 @@ if (0 < smoke_ppm && smoke_ppm < 100) {
     Serial.println(fbdo.errorReason());
   }
 
-  delay(10000);
+  delay(1000);
 }
 
 // -----------------------
@@ -288,7 +300,7 @@ if (0 < smoke_ppm && smoke_ppm < 100) {
 float MQResistanceCalculation(int raw_adc)
 {
   if (raw_adc == 0) raw_adc = 1;  // Avoid /0
-  return ( (float)RL_VALUE * (1023.0 - raw_adc) / (float)raw_adc );
+  return ( (float)RL_VALUE * (4095.0 - raw_adc) / (float)raw_adc );
 }
 
 float MQCalibration(int mq_pin)
@@ -300,6 +312,12 @@ float MQCalibration(int mq_pin)
   }
   val /= (float)CALIBARAION_SAMPLE_TIMES;
   val /= RO_CLEAN_AIR_FACTOR; 
+    if(val<=0 ){
+    Serial.print("FAILED CALLIBRATION: CALIBRATING AGAIN:( ");
+    Serial.println(val);
+    MQCalibration(mq_pin);
+    
+  }
   return val;
 }
 
@@ -329,3 +347,4 @@ int MQGetPercentage(float rs_ro_ratio, float *pcurve)
   float val = ((log(rs_ro_ratio) - pcurve[1]) / pcurve[2]) + pcurve[0];
   return (int)pow(10, val);
 }
+
