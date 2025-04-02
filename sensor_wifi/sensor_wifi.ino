@@ -29,6 +29,7 @@ static const int daylightOffset_s = 3600;     // Change as needed
 #define RL_VALUE 20              // Load resistor in kilo-ohms
 #define RO_CLEAN_AIR_FACTOR 3.6  // Sensor resistance in clean air factor
 
+
 // Calibration/reading settings
 #define CALIBARAION_SAMPLE_TIMES 10
 #define CALIBRATION_SAMPLE_INTERVAL 500
@@ -70,13 +71,15 @@ float MQRead(int mq_pin);
 int MQGetGasPercentage(float rs_ro_ratio, int gas_id);
 int MQGetPercentage(float rs_ro_ratio, float *pcurve);
 
+
+
+///////////////////////////// Bluetooth/WIFI ///////////////////////////////////
 //Credentials
 String SSID;
 String PW;
 
 // Bluetooth Adapter
 BluetoothSerial SerialBT;
-bool flag =false;
 
 //Preferences to store ssid and password
 Preferences prefs;
@@ -85,9 +88,10 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
+  //SetUp the nonVolatile memory
+  setUpPrefs();
   //Initialize and make Bluetooth discoverable
   makeESP32Discoverable();
-
   //Retrieve data from bluetooth and set up ssid and pw
   storeCredentials();
 
@@ -128,8 +132,6 @@ void setup() {
 }
 
 void loop() {
-  //receivedData();
-
   // 1) Read MQ
   // -----------------------
   float mqResistance = MQRead(MQ_PIN);
@@ -365,6 +367,7 @@ void makeESP32Discoverable()
   } else {
     Serial.println(" Bluetooth initialization FAILED");
   }
+  connectedBT();
 }
 
 
@@ -391,10 +394,8 @@ String receiveData(){
 
 void storeCredentials()
 {
-  prefs.begin("Wifi",false);
   if(!(prefs.isKey("ssid") && prefs.isKey("pw")))
   {
-    connectedBT();
     String result = receiveData();
     int commaIndex = result.indexOf(',');
 
@@ -407,4 +408,10 @@ void storeCredentials()
   SSID=prefs.getString("ssid","Error");
   PW=prefs.getString("pw", "Error");
   prefs.end();
+}
+
+void setUpPrefs()
+{
+  prefs.begin("Wifi",false);
+  prefs.clear();
 }
