@@ -5,6 +5,7 @@
 #include <addons/RTDBHelper.h>
 #include <DFRobot_DHT11.h>
 DFRobot_DHT11 DHT;
+#include <Preferences.h>
 #include <time.h>
 
 // -----------------------
@@ -69,20 +70,31 @@ float MQRead(int mq_pin);
 int MQGetGasPercentage(float rs_ro_ratio, int gas_id);
 int MQGetPercentage(float rs_ro_ratio, float *pcurve);
 
+//Credentials
+String SSID;
+String PW;
+
 // Bluetooth Adapter
 BluetoothSerial SerialBT;
+bool flag =false;
+
+//Preferences to store ssid and password
+Preferences prefs;
 
 void setup() {
   Serial.begin(115200);
   delay(100);
 
   //Initialize and make Bluetooth discoverable
-  //makeESP32Discoverable();
+  makeESP32Discoverable();
+
+  //Retrieve data from bluetooth and set up ssid and pw
+  storeCredentials();
 
   // 1) Connect to WiFi
   Serial.print("Connecting to WiFi: ");
-  Serial.println(WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.println(SSID);
+  WiFi.begin(SSID, PW);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -348,24 +360,51 @@ void makeESP32Discoverable()
 {
   bool success = SerialBT.begin("ESPMOHA");
 
-if (success) {
-  Serial.println(" Bluetooth successfully initialized and discoverable as ESPMOHA");
-} else {
-  Serial.println(" Bluetooth initialization FAILED");
-}
-  SerialBT.end();
-  Serial.println(" Bluetooth ENDED");
-}
-
-void receivedData(){
-  if (SerialBT.hasClient()) {
-  if (SerialBT.available()) {
-    String received = SerialBT.readStringUntil('\n');
-    Serial.print("Received via Bluetooth: ");
-    Serial.println(received);
-
-    // Optional: send acknowledgment back
-    SerialBT.println("Received: " + received);
+  if (success) {
+    Serial.println(" Bluetooth successfully initialized and discoverable as ESPMOHA");
+  } else {
+    Serial.println(" Bluetooth initialization FAILED");
   }
 }
+
+
+void connectedBT(){
+  Serial.println("Waiting for a device to connect via BT");
+  while (!SerialBT.hasClient()) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected succesfully in bluetooth");
+}
+
+String receiveData(){
+  Serial.println("Waiting for credentials to be sent:");
+  while (!SerialBT.available()) {
+    delay(500);
+    Serial.print(".");
+  }
+  String received = SerialBT.readStringUntil('\n');
+  Serial.println("Received via Bluetooth");
+  
+  return received;
+}
+
+void storeCredentials()
+{
+  prefs.begin("Wifi",false);
+  if(!(prefs.isKey("ssid") && prefs.isKey("pw")))
+  {
+    connectedBT();
+    String result = receiveData();
+    int commaIndex = result.indexOf(',');
+
+    String id = result.substring(0, commaIndex);// before the comma
+    String pw = result.substring(commaIndex + 1);
+
+    prefs.putString("ssid",id);
+    prefs.putString("pw",pw);
+  }
+  SSID=prefs.getString("ssid","Error");
+  PW=prefs.getString("pw", "Error");
+  prefs.end();
 }
