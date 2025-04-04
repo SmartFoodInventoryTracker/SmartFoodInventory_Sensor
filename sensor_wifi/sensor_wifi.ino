@@ -77,6 +77,7 @@ int MQGetPercentage(float rs_ro_ratio, float *pcurve);
 //Credentials
 String SSID;
 String PW;
+String userId;
 
 // Bluetooth Adapter
 BluetoothSerial SerialBT;
@@ -299,7 +300,8 @@ void loop() {
   json.set("overall condition", overall_condition);
 
   // pushJSON => each reading gets a unique key
-  String path = "inventory";
+  String path = "users/"+userId+"/fridge conditions";
+
   if (Firebase.RTDB.pushJSON(&fbdo, path, &json)) {
     Serial.println("Data pushed to Firebase with a unique key!");
   } else {
@@ -396,11 +398,15 @@ void storeCredentials()
 {
   if(!(prefs.isKey("ssid") && prefs.isKey("pw")))
   {
-    String result = receiveData();
-    int commaIndex = result.indexOf(',');
+   String result = receiveData();  
 
-    String id = result.substring(0, commaIndex);// before the comma
-    String pw = result.substring(commaIndex + 1);
+    int firstComma = result.indexOf(','); 
+    int secondComma = result.indexOf(',', firstComma + 1);  
+
+    // Extract the three parts using substring
+    String id = result.substring(0, firstComma);
+    String pw = result.substring(firstComma + 1, secondComma);
+    userId = result.substring(secondComma + 1);  // until end
 
     prefs.putString("ssid",id);
     prefs.putString("pw",pw);
