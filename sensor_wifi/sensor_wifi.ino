@@ -90,11 +90,17 @@ BluetoothSerial SerialBT;
 Preferences prefs;
 LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
 void setup() {
-  Serial.begin(115200);
-  delay(100);
-  lcd.begin(16, 2);
-  lcd.print("Pair with Bluetooth");
 
+ Serial.begin(115200);
+lcd.begin(16, 2);
+lcd.print("WELCOME TO");
+lcd.setCursor(0, 1);
+lcd.print("SMART FRIDGE");
+
+delay(3000);
+
+  
+  
   //SetUp the nonVolatile memory
   setUpPrefs();
   //Initialize and make Bluetooth discoverable
@@ -103,10 +109,11 @@ void setup() {
   storeCredentials();
 
   // 1) Connect to WiFi
-  Serial.print("Connecting to WiFi: ");
   lcd.begin(16, 2);
-  lcd.print("Connecting to WiFi");
-  delay(500);
+  lcd.print("ADD SSID AND ");
+  lcd.setCursor(0, 1);
+  lcd.print("PASSWORD!");
+  delay(1000);
   Serial.println(SSID);
   WiFi.begin(SSID, PW);
   while (WiFi.status() != WL_CONNECTED) {
@@ -119,8 +126,8 @@ void setup() {
   Serial.println("\nWiFi connected!");
   
   lcd.begin(16, 2);
-  lcd.print("WiFi Connected! :)");
-   delay(1000);
+  lcd.print("WiFi Connected!:)");
+   delay(2000);
 
 
   config.host = FIREBASE_HOST;
@@ -305,15 +312,23 @@ if (0 <= smoke_ppm && smoke_ppm < 100) {
     overall_condition = 10;
 }
 
- if (overall_condition >= 1 && overall_condition < 3) {
-  lcd.begin(16, 2);
-  lcd.print("GOOD ");
-} else if (overall_condition >= 3 && overall_condition < 6) {
+
+ if (overall_condition >= 1 && overall_condition < 4) {
+ lcd.begin(16, 2);
+  lcd.print("CONDITION is:");
+  lcd.setCursor(0, 1);
+  lcd.print("GOOD! :)");
+  
+} else if (overall_condition >= 4 && overall_condition <7) {
+ lcd.begin(16, 2);
+  lcd.print("CONDITION is:");
+  lcd.setCursor(0, 1);
+  lcd.print("MODERATE -_-");
+} else if (overall_condition >= 7 && overall_condition <= 10) {
    lcd.begin(16, 2);
-  lcd.print("MODERATE");
-} else if (overall_condition >= 6 && overall_condition <= 10) {
-  lcd.begin(16, 2);
-  lcd.print("POOR");
+  lcd.print("CONDITION is:");
+  lcd.setCursor(0, 1);
+  lcd.print("POOR :(");
 }
  
  
@@ -415,6 +430,11 @@ void makeESP32Discoverable()
 
 void connectedBT(){
   Serial.println("Waiting for a device to connect via BT");
+  lcd.begin(16, 2);
+  lcd.print("Pair with");
+  lcd.setCursor(0, 1);
+  lcd.print("BLUETOOTH!");
+  delay(2000);
     while (!SerialBT.hasClient()) {
     delay(500);
     Serial.print(".");
@@ -422,10 +442,11 @@ void connectedBT(){
   Serial.println("Connected succesfully in bluetooth");
   lcd.begin(16, 2);
   lcd.print("Paired");
-  delay(500);
+  delay(2000);
 }
 
 String receiveData(){
+  
   Serial.println("Waiting for credentials to be sent:");
   lcd.begin(16, 2);
   lcd.print("GO TO SETTINGS");
@@ -439,7 +460,7 @@ String receiveData(){
   Serial.println("Received via Bluetooth");
   lcd.begin(16, 2);
   lcd.print("Received data");
-  delay(500);
+  delay(2000);
   return received;
 }
 
