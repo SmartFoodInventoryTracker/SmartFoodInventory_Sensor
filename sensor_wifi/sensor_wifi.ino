@@ -1,55 +1,58 @@
-//gg
-
+//2024-04-05
 
 
 #include <WiFi.h>
-#include <Firebase_ESP_Client.h>  
-#include <addons/TokenHelper.h>   
-#include <addons/RTDBHelper.h>   
+#include "BluetoothSerial.h"
+#include <Firebase_ESP_Client.h>
+#include <addons/TokenHelper.h>
+#include <addons/RTDBHelper.h>
 #include <DFRobot_DHT11.h>
 DFRobot_DHT11 DHT;
+#include <Preferences.h>
 #include <time.h>
+#include "LiquidCrystal.h"
 
 // -----------------------
 // Credentials
 // -----------------------
-#define WIFI_SSID       "aaaaaaaa"
-#define WIFI_PASSWORD   "aaaaaaaa"
-#define FIREBASE_HOST   "https://smart-food-inventory-tracker-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH   "inventory" // e.g. "xxxxxxxxxxxxx"
+//#define WIFI_SSID "aaaaaaaa"
+//#define WIFI_PASSWORD "aaaaaaaa"
+#define FIREBASE_HOST "https://smart-food-inventory-tracker-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "inventory"  // e.g. "xxxxxxxxxxxxx"
 
 
 // utp-5 config
-static const char* ntpServer        = "pool.ntp.org";
-static const long  gmtOffset_sec    = -5*3600;     // Change as needed
-static const int   daylightOffset_s = 3600;     // Change as needed
+static const char *ntpServer = "pool.ntp.org";
+static const long gmtOffset_sec = -5 * 3600;  // Change as needed
+static const int daylightOffset_s = 3600;     // Change as needed
 
 // dht11 sensor
 #define DHT11_PIN 4
 //mq135 sensor
-#define MQ_PIN                 34    // ADC input pin on ESP32
-#define RL_VALUE               20     // Load resistor in kilo-ohms
-#define RO_CLEAN_AIR_FACTOR    3.6   // Sensor resistance in clean air factor
+#define MQ_PIN 34                // ADC input pin on ESP32
+#define RL_VALUE 1              // Load resistor in kilo-ohms
+#define RO_CLEAN_AIR_FACTOR 3.6  // Sensor resistance in clean air factor
+
 
 // Calibration/reading settings
-#define CALIBARAION_SAMPLE_TIMES    10
+#define CALIBARAION_SAMPLE_TIMES 10
 #define CALIBRATION_SAMPLE_INTERVAL 500
-#define READ_SAMPLE_INTERVAL        50
-#define READ_SAMPLE_TIMES           5
+#define READ_SAMPLE_INTERVAL 50
+#define READ_SAMPLE_TIMES 5
 
-// Gas 
-#define GAS_LPG    0
-#define GAS_CO     1
-#define GAS_SMOKE  2
-float           LPGCurve[3]  =  {2.3,0.21,-0.47};   //two points are taken from the curve. 
-                                                    //with these two points, a line is formed which is "approximately equivalent"
-                                                    //to the original curve. 
-                                                    //data format:{ x, y, slope}; point1: (lg200, 0.21), point2: (lg10000, -0.59) 
-float           COCurve[3]  =  {2.3,0.72,-0.34};    //two points are taken from the curve. 
-                                                    //with these two points, a line is formed which is "approximately equivalent" 
-                                                    //to the original curve.
-                                                    //data format:{ x, y, slope}; point1: (lg200, 0.72), point2: (lg10000,  0.15) 
-float           SmokeCurve[3] ={2.3,0.53,-0.44};  
+// Gas
+#define GAS_LPG 0
+#define GAS_CO 1
+#define GAS_SMOKE 2
+float LPGCurve[3] = { 2.3, 0.21, -0.47 };  //two points are taken from the curve.
+                                           //with these two points, a line is formed which is "approximately equivalent"
+                                           //to the original curve.
+                                           //data format:{ x, y, slope}; point1: (lg200, 0.21), point2: (lg10000, -0.59)
+float COCurve[3] = { 2.3, 0.72, -0.34 };   //two points are taken from the curve.
+                                           //with these two points, a line is formed which is "approximately equivalent"
+                                           //to the original curve.
+                                           //data format:{ x, y, slope}; point1: (lg200, 0.72), point2: (lg10000,  0.15)
+float SmokeCurve[3] = { 2.3, 0.53, -0.44 };
 // Gas curves
 //float LPGCurve[3]   = {2.3,  0.21, -0.47};
 //float COCurve[3]    = {1,0.36,-0.35};
@@ -60,42 +63,74 @@ float Ro = 10.0;
 
 
 // obj firebase
-FirebaseData fbdo;       // For read/write
-FirebaseAuth auth;       // Authentication
-FirebaseConfig config;   // Firebase config
+FirebaseData fbdo;      // For read/write
+FirebaseAuth auth;      // Authentication
+FirebaseConfig config;  // Firebase config
 
 //functions
 // -----------------------
 float MQResistanceCalculation(int raw_adc);
 float MQCalibration(int mq_pin);
 float MQRead(int mq_pin);
-int   MQGetGasPercentage(float rs_ro_ratio, int gas_id);
-int   MQGetPercentage(float rs_ro_ratio, float *pcurve);
+int MQGetGasPercentage(float rs_ro_ratio, int gas_id);
+int MQGetPercentage(float rs_ro_ratio, float *pcurve);
 
-void setup()
-{
+
+
+///////////////////////////// Bluetooth/WIFI ///////////////////////////////////
+//Credentials
+String SSID;
+String PW;
+String userId;
+
+// Bluetooth Adapter
+BluetoothSerial SerialBT;
+
+//Preferences to store ssid and password
+Preferences prefs;
+LiquidCrystal lcd(19, 23, 18, 17, 16, 15);
+void setup() {
   Serial.begin(115200);
   delay(100);
+  lcd.begin(16, 2);
+  lcd.print("Pair with Bluetooth");
+
+  //SetUp the nonVolatile memory
+  setUpPrefs();
+  //Initialize and make Bluetooth discoverable
+  makeESP32Discoverable();
+  //Retrieve data from bluetooth and set up ssid and pw
+  storeCredentials();
 
   // 1) Connect to WiFi
   Serial.print("Connecting to WiFi: ");
-  Serial.println(WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  lcd.begin(16, 2);
+  lcd.print("Connecting to WiFi");
+  delay(500);
+  Serial.println(SSID);
+  WiFi.begin(SSID, PW);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-   Serial.print(".");
+    Serial.print(".");
+    lcd.begin(16, 2);
+  lcd.print("connecting...");
   }
+  delay(1000);
   Serial.println("\nWiFi connected!");
+  
+  lcd.begin(16, 2);
+  lcd.print("WiFi Connected! :)");
+   delay(1000);
 
- 
-  config.host = FIREBASE_HOST;  
+
+  config.host = FIREBASE_HOST;
   config.signer.tokens.legacy_token = FIREBASE_AUTH;
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
   //Configure time via NTP
   configTime(gmtOffset_sec, daylightOffset_s, ntpServer);
-  
+
   // wait here until we get the time
   struct tm timeinfo;
   while (!getLocalTime(&timeinfo)) {
@@ -106,33 +141,36 @@ void setup()
 
   //Calibrate MQ in clean air
   Serial.println("Calibrating MQ sensor in clean air...");
+   lcd.begin(16, 2);
+  lcd.print("Calibrating...");
   Ro = MQCalibration(MQ_PIN);
-  Serial.println("Calibration done.");
+  Serial.println("Calibration done!");
+  delay(1000);
   Serial.print("Ro = ");
   Serial.print(Ro);
   Serial.println(" kΩ");
 }
 
-void loop()
-{
-  
+void loop() {
   // 1) Read MQ
   // -----------------------
-  float mqResistance = MQRead(MQ_PIN); 
-  float ratio        = mqResistance / Ro;
-  int lpg_ppm        = (8.99*MQGetGasPercentage(ratio, GAS_LPG));
-  int co_ppm         =(9.99*MQGetGasPercentage(ratio, GAS_CO));
-  int smoke_ppm      = (7.99*MQGetGasPercentage(ratio, GAS_SMOKE));
+   //lcd.begin(16, 2);
+  //lcd.print("measuring.");
+  float mqResistance = MQRead(MQ_PIN);
+  float ratio = mqResistance / Ro;
+  int lpg_ppm = (8.99 * MQGetGasPercentage(ratio, GAS_LPG))+1;
+  int co_ppm = (9.99 * MQGetGasPercentage(ratio, GAS_CO))+1;
+  int smoke_ppm = (7.99 * MQGetGasPercentage(ratio, GAS_SMOKE))+1;
 
-  //if(lpg_ppm>1000){
-  //  lpg_ppm=1000;
- // }
- // if(co_ppm>1000)
-   // co_ppm=1000;
+  //if(lpg_ppm>2000){
+    //lpg_ppm=2000;
+   //}
+   //if(co_ppm>2000)
+   //co_ppm=2000;
   //}
-  //if(smoke_ppm>1000){
-  //  smoke_ppm=1000;
- // }
+  //if(smoke_ppm>2000){
+    //smoke_ppm=2000;
+   //}
 
   Serial.print("LPG: ");
   Serial.print(lpg_ppm);
@@ -141,14 +179,14 @@ void loop()
   Serial.print(" ppm | SMOKE: ");
   Serial.print(smoke_ppm);
   Serial.println(" ppm");
-  
+
   delay(300);
- 
+
   // 2) Read DHT11
   // -----------------------
   DHT.read(DHT11_PIN);
   float temperature = DHT.temperature;
-  float humidity    = DHT.humidity;
+  float humidity = DHT.humidity;
 
   Serial.print("Temperature: ");
   Serial.print(temperature);
@@ -164,7 +202,7 @@ void loop()
     Serial.println("Failed to obtain time");
   }
 
-  // Format the time 
+  // Format the time
   char formattedTime[32];
   strftime(formattedTime, sizeof(formattedTime), "%Y-%m-%d %H:%M:%S", &timeinfo);
   int temperature_condition;
@@ -172,9 +210,9 @@ void loop()
   int lpg_ppm_condition;
   int co_ppm_condition;
   int smoke_ppm_condition;
-  
 
-if(2 <= temperature && temperature < 4){
+
+if(0 <= temperature && temperature < 4){
     temperature_condition = 1; // 1 represents the best temperature condition
 } else if(4 <= temperature && temperature < 6){
     temperature_condition = 3;
@@ -184,21 +222,21 @@ if(2 <= temperature && temperature < 4){
     temperature_condition = 7;
 } else if(10 <= temperature && temperature < 12){
     temperature_condition = 9;
-} else if(12 <= temperature && temperature < 14){
+} else if(12 <= temperature ){
     temperature_condition = 10;
 }
 
-if (40 <= humidity && humidity < 50) {
+if (0 <= humidity && humidity < 20) {
     humidity_condition = 1; // 1 represents the best humidity condition
-} else if (50 <= humidity && humidity < 60) {
+} else if (20 <= humidity && humidity < 40) {
     humidity_condition = 3;
-} else if (60 <= humidity && humidity < 70) {
+} else if (40 <= humidity && humidity < 60) {
     humidity_condition = 5;
-} else if (70 <= humidity && humidity < 80) {
+} else if (60 <= humidity && humidity < 80) {
     humidity_condition = 7;
 } else if (80 <= humidity && humidity < 90) {
     humidity_condition = 9;
-} else if (90 <= humidity && humidity < 100) {
+} else if (90 <= humidity ) {
     humidity_condition = 10;
 }
 
@@ -266,6 +304,21 @@ if (0 <= smoke_ppm && smoke_ppm < 100) {
 } else {
     overall_condition = 10;
 }
+
+ if (overall_condition >= 1 && overall_condition < 3) {
+  lcd.begin(16, 2);
+  lcd.print("GOOD ");
+} else if (overall_condition >= 3 && overall_condition < 6) {
+   lcd.begin(16, 2);
+  lcd.print("MODERATE");
+} else if (overall_condition >= 6 && overall_condition <= 10) {
+  lcd.begin(16, 2);
+  lcd.print("POOR");
+}
+ 
+ 
+
+
   // 4) Build JSON for Firebase
   // -----------------------
   FirebaseJson json;
@@ -283,46 +336,46 @@ if (0 <= smoke_ppm && smoke_ppm < 100) {
   json.set("overall condition", overall_condition);
 
   // pushJSON => each reading gets a unique key
-  String path = "inventory"; 
+String path = "users/" + userId + "/fridge_condition";
+
   if (Firebase.RTDB.pushJSON(&fbdo, path, &json)) {
     Serial.println("Data pushed to Firebase with a unique key!");
   } else {
     Serial.print("Error sending data to Firebase: ");
     Serial.println(fbdo.errorReason());
   }
-
+//Serial.print(userId);
   delay(1000);
 }
 
 // -----------------------
 // MQ Sensor Functions
 // -----------------------
-float MQResistanceCalculation(int raw_adc)
-{
+float MQResistanceCalculation(int raw_adc) {
   if (raw_adc == 0) raw_adc = 1;  // Avoid /0
-  return ( (float)RL_VALUE * (4095.0 - raw_adc) / (float)raw_adc );
+  return ((float)RL_VALUE * (4095.0 - raw_adc) / (float)raw_adc);
 }
 
-float MQCalibration(int mq_pin)
-{
+float MQCalibration(int mq_pin) {
+ 
   float val = 0;
   for (int i = 0; i < CALIBARAION_SAMPLE_TIMES; i++) {
     val += MQResistanceCalculation(analogRead(mq_pin));
     delay(CALIBRATION_SAMPLE_INTERVAL);
   }
   val /= (float)CALIBARAION_SAMPLE_TIMES;
-  val /= RO_CLEAN_AIR_FACTOR; 
-    if(val<=0 ){
+  val /= RO_CLEAN_AIR_FACTOR;
+  if (val <= 0) {
     Serial.print("FAILED CALLIBRATION: CALIBRATING AGAIN:( ");
+    lcd.begin(16, 2);
+  lcd.print("Failed calibration");
     Serial.println(val);
     MQCalibration(mq_pin);
-    
   }
   return val;
 }
 
-float MQRead(int mq_pin)
-{
+float MQRead(int mq_pin) {
   float rs = 0;
   for (int i = 0; i < READ_SAMPLE_TIMES; i++) {
     rs += MQResistanceCalculation(analogRead(mq_pin));
@@ -332,19 +385,88 @@ float MQRead(int mq_pin)
   return rs;
 }
 
-int MQGetGasPercentage(float rs_ro_ratio, int gas_id)
-{
+int MQGetGasPercentage(float rs_ro_ratio, int gas_id) {
   switch (gas_id) {
-    case GAS_LPG:   return MQGetPercentage(rs_ro_ratio, LPGCurve);
-    case GAS_CO:    return MQGetPercentage(rs_ro_ratio, COCurve);
+    case GAS_LPG: return MQGetPercentage(rs_ro_ratio, LPGCurve);
+    case GAS_CO: return MQGetPercentage(rs_ro_ratio, COCurve);
     case GAS_SMOKE: return MQGetPercentage(rs_ro_ratio, SmokeCurve);
   }
   return 0;
 }
 
-int MQGetPercentage(float rs_ro_ratio, float *pcurve)
-{
+int MQGetPercentage(float rs_ro_ratio, float *pcurve) {
   float val = ((log(rs_ro_ratio) - pcurve[1]) / pcurve[2]) + pcurve[0];
   return (int)pow(10, val);
 }
 
+void makeESP32Discoverable()
+{
+  bool success = SerialBT.begin("ESPMOHA1");
+
+  if (success) {
+    Serial.println(" Bluetooth successfully initialized and discoverable as ESPMOHA");
+    
+  } else {
+    Serial.println(" Bluetooth initialization FAILED");
+  }
+  connectedBT();
+}
+
+
+void connectedBT(){
+  Serial.println("Waiting for a device to connect via BT");
+    while (!SerialBT.hasClient()) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Connected succesfully in bluetooth");
+  lcd.begin(16, 2);
+  lcd.print("Paired");
+  delay(500);
+}
+
+String receiveData(){
+  Serial.println("Waiting for credentials to be sent:");
+  lcd.begin(16, 2);
+  lcd.print("GO TO SETTINGS");
+  lcd.begin(0, 1);
+  lcd.print("and add Creditential");
+  while (!SerialBT.available()) {
+    delay(500);
+    Serial.print(".");
+  }
+  String received = SerialBT.readStringUntil('\n');
+  Serial.println("Received via Bluetooth");
+  lcd.begin(16, 2);
+  lcd.print("Received data");
+  delay(500);
+  return received;
+}
+
+void storeCredentials()
+{
+  if(!(prefs.isKey("ssid") && prefs.isKey("pw")))
+  {
+   String result = receiveData();  
+
+    int firstComma = result.indexOf(','); 
+    int secondComma = result.indexOf(',', firstComma + 1);  
+
+    // Extract the three parts using substring
+    String id = result.substring(0, firstComma);
+    String pw = result.substring(firstComma + 1, secondComma);
+    userId = result.substring(secondComma + 1);  // until end
+
+    prefs.putString("ssid",id);
+    prefs.putString("pw",pw);
+  }
+  SSID=prefs.getString("ssid","Error");
+  PW=prefs.getString("pw", "Error");
+  prefs.end();
+}
+
+void setUpPrefs()
+{
+  prefs.begin("Wifi",false);
+  prefs.clear();
+}
