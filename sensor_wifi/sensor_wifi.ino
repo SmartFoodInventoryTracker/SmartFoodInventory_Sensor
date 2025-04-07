@@ -441,6 +441,8 @@ void connectedBT(){
   }
   Serial.println("Connected succesfully in bluetooth");
   lcd.begin(16, 2);
+  lcd.print("BLUETOOTH is");
+  lcd.setCursor(0, 1);
   lcd.print("Paired");
   delay(2000);
 }
@@ -449,9 +451,10 @@ String receiveData(){
   
   Serial.println("Waiting for credentials to be sent:");
   lcd.begin(16, 2);
-  lcd.print("GO TO SETTINGS");
-  lcd.begin(0, 1);
-  lcd.print("and add Creditential");
+  lcd.print("Waiting for:");
+  lcd.setCursor(0, 1);
+  lcd.print("Creditential");
+  delay(500);
   while (!SerialBT.available()) {
     delay(500);
     Serial.print(".");
